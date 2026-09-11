@@ -124,7 +124,7 @@ def organize_library(source_folder, output_folder):
         except Exception as error:
             print(f"Could not process {file_path.name}: {error}")
 
-    print("\nFinished organizing music library.")
+    print("\nFinished organizing the music library.")
 
 
 if __name__ == "__main__":
