@@ -1,3 +1,4 @@
+import argparse
 import re
 import shutil
 from pathlib import Path
@@ -7,17 +8,16 @@ from mutagen.id3 import ID3, ID3NoHeaderError
 
 
 def clean_text(text: str) -> str:
-    """Remove unnecessary spaces from metadata."""
+    """Remove unnecessary whitespace and blank values."""
     if not text or not text.strip():
         return "Unknown"
 
-    text = text.strip()
-    text = re.sub(r"\s+", " ", text)
-    return text if text else "Unknown"
+    cleaned = re.sub(r"\s+", " ", text.strip())
+    return cleaned if cleaned else "Unknown"
 
 
 def safe_filename(name: str, fallback: str = "Unknown") -> str:
-    """Remove invalid filename characters and ensure name is non-empty."""
+    """Remove reserved OS characters and trailing dots/spaces."""
     invalid_chars = '<>:"/\\|?*'
     for char in invalid_chars:
         name = name.replace(char, "")
@@ -26,17 +26,31 @@ def safe_filename(name: str, fallback: str = "Unknown") -> str:
     return cleaned if cleaned else fallback
 
 
+def parse_track_number(raw_track: str) -> int:
+    """Extract a valid track integer from formats like '01', '1/12', or '1-02'."""
+    if not raw_track:
+        return 0
+
+    # Extract first sequence of digits
+    match = re.search(r"\d+", str(raw_track))
+    if match:
+        try:
+            return int(match.group())
+        except ValueError:
+            return 0
+    return 0
+
+
 def get_metadata(file_path: Path) -> dict:
     """Read title, artist, album, and track number safely from an MP3."""
     try:
         audio = EasyID3(file_path)
     except ID3NoHeaderError:
-        # Create a blank ID3 header before wrapping with EasyID3
         tags = ID3()
         tags.save(file_path)
         audio = EasyID3(file_path)
     except Exception:
-        audio = {}
+        audio = EasyID3()  # Fallback to an empty EasyID3 object rather than a dict
 
     title_val = audio.get("title", [file_path.stem])[0]
     artist_val = audio.get("artist", ["Unknown Artist"])[0]
@@ -47,12 +61,7 @@ def get_metadata(file_path: Path) -> dict:
     album = clean_text(album_val if album_val else "Unknown Album")
 
     raw_track = audio.get("tracknumber", ["0"])[0]
-    raw_track = str(raw_track).split("/")[0]
-
-    try:
-        track = int(raw_track)
-    except ValueError:
-        track = 0
+    track = parse_track_number(raw_track)
 
     return {
         "title": title,
@@ -81,7 +90,10 @@ def update_metadata(file_path: Path, metadata: dict) -> None:
     audio.save()
 
 
-def organize_file(file_path: Path, output_folder: Path) -> None:
+def organize_file(
+    file_path: Path, output_folder: Path, move_files: bool = False
+) -> None:
+    """Organize a single MP3 file into Artist/Album/Track - Title structure."""
     metadata = get_metadata(file_path)
     update_metadata(file_path, metadata)
 
@@ -104,38 +116,42 @@ def organize_file(file_path: Path, output_folder: Path) -> None:
         return
 
     if destination.exists():
-        print(f"Skipped: {destination.name} already exists in target folder.")
+        print(f"Skipped: {destination.name} already exists in target directory.")
         return
 
-    shutil.copy2(file_path, destination)
-    print(
-        f"Organized: {metadata['artist']} - {metadata['title']} "
-        f"({metadata['album']})"
-    )
+    if move_files:
+        shutil.move(file_path, destination)
+        action = "Moved"
+    else:
+        shutil.copy2(file_path, destination)
+        action = "Copied"
+
+    print(f"{action}: {metadata['artist']} - {metadata['title']} ({metadata['album']})")
 
 
-def organize_library(source_folder: str, output_folder: str) -> None:
+def organize_library(
+    source_folder: str, output_folder: str, move_files: bool = False
+) -> None:
     source_path = Path(source_folder).resolve()
     output_path = Path(output_folder).resolve()
 
     if not source_path.exists():
-        print("The source folder does not exist.")
+        print("Error: The source folder does not exist.")
         return
 
-    # Case-insensitive search for .mp3 files
     mp3_files = [
-        p for p in source_path.rglob("*") if p.suffix.lower() == ".mp3"
+        p for p in source_path.rglob("*") if p.is_file() and p.suffix.lower() == ".mp3"
     ]
 
     if not mp3_files:
-        print("No MP3 files were found.")
+        print("No MP3 files found.")
         return
 
     print(f"Found {len(mp3_files)} MP3 file(s).\n")
 
     for file_path in mp3_files:
         try:
-            organize_file(file_path, output_path)
+            organize_file(file_path, output_path, move_files=move_files)
         except Exception as error:
             print(f"Could not process {file_path.name}: {error}")
 
@@ -145,5 +161,7 @@ def organize_library(source_folder: str, output_folder: str) -> None:
 if __name__ == "__main__":
     source = input("Folder containing your MP3 files: ").strip()
     output = input("Folder for the organized library: ").strip()
+    mode = input("Move files instead of copying? (y/N): ").strip().lower()
 
-    organize_library(source, output)
+    should_move = mode == "y"
+    organize_library(source, output, move_files=should_move)
