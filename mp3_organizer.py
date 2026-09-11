@@ -108,6 +108,7 @@ def organize_file(file_path: Path, output_folder: Path, move_files: bool = False
 
     destination = destination_folder / filename
 
+    # Avoid SameFileError if source and destination overlap
     if destination.resolve() == file_path.resolve():
         print(f"Skipped: {destination.name} is already in destination path.")
         return
