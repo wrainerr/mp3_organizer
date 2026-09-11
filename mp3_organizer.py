@@ -92,11 +92,11 @@ def _first_value(values, default):
 
 
 def get_metadata(file_path):
-    """Read the title, artist, album, and track number from an MP3.
+    """Read title, artist, album, and track number from an MP3.
 
-    Never raises for tag-related problems: any read/parse issue results in
-    sensible fallback values so the caller can still file the track away.
-    """
+Missing tags use sensible fallback values. Corrupt or unreadable
+MP3/ID3 data raises ValueError so the caller can skip the file.
+"""
     try:
         try:
             audio = EasyID3(file_path)
