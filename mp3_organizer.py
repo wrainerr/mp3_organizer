@@ -8,14 +8,14 @@ from mutagen.id3 import ID3NoHeaderError
 
 
 def clean_text(text):
-    """Clean up spacing and capitalization in metadata."""
+    """Remove unnecessary spaces from metadata."""
     if not text:
         return "Unknown"
 
     text = text.strip()
     text = re.sub(r"\s+", " ", text)
 
-    return text.title()
+    return text
 
 
 def safe_filename(name):
