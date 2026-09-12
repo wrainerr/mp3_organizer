@@ -92,11 +92,11 @@ def _first_value(values, default):
 
 
 def get_metadata(file_path):
-    """Read title, artist, album, and track number from an MP3.
+    """Read the title, artist, album, and track number from an MP3.
 
-Missing tags use sensible fallback values. Corrupt or unreadable
-MP3/ID3 data raises ValueError so the caller can skip the file.
-"""
+    Never raises for tag-related problems: any read/parse issue results in
+    sensible fallback values so the caller can still file the track away.
+    """
     try:
         try:
             audio = EasyID3(file_path)
@@ -172,7 +172,17 @@ def unique_destination(destination):
         counter += 1
 
 
-def organize_file(file_path, output_folder, stats):
+def organize_file(file_path, output_folder, stats, on_duplicate="skip"):
+    """Copy and (re)tag a single MP3 into output_folder/Artist/Album/.
+
+    on_duplicate controls what happens when the destination filename
+    already exists:
+      - "skip"   (default): leave the existing file alone, skip this one.
+      - "rename": copy alongside it as "Title (2).mp3", "Title (3).mp3", etc.
+    """
+    if on_duplicate not in ("skip", "rename"):
+        raise ValueError(f"invalid on_duplicate value: {on_duplicate!r}")
+
     metadata = get_metadata(file_path)
 
     try:
@@ -211,9 +221,14 @@ def organize_file(file_path, output_folder, stats):
         return
 
     if destination.exists():
-        print(f"Skipped: {destination.name} already exists")
-        stats["skipped"] += 1
-        return
+        if on_duplicate == "rename":
+            original_name = destination.name
+            destination = unique_destination(destination)
+            print(f"Renamed on collision: {original_name} -> {destination.name}")
+        else:
+            print(f"Skipped: {destination.name} already exists")
+            stats["skipped"] += 1
+            return
 
     try:
         shutil.copy2(file_path, destination)
@@ -233,7 +248,12 @@ def organize_file(file_path, output_folder, stats):
     )
 
 
-def organize_library(source_folder, output_folder):
+def organize_library(source_folder, output_folder, on_duplicate="skip"):
+    """on_duplicate is forwarded to organize_file for every track; see its
+    docstring for the accepted values ("skip" or "rename")."""
+    if on_duplicate not in ("skip", "rename"):
+        raise ValueError(f"invalid on_duplicate value: {on_duplicate!r}")
+
     source_folder = Path(source_folder).expanduser()
     output_folder = Path(output_folder).expanduser()
 
@@ -293,7 +313,7 @@ def organize_library(source_folder, output_folder):
                 print(f"Could not process {file_path.name}: file no longer exists")
                 stats["failed"] += 1
                 continue
-            organize_file(file_path, output_folder, stats)
+            organize_file(file_path, output_folder, stats, on_duplicate=on_duplicate)
         except KeyboardInterrupt:
             raise
         except Exception as error:
@@ -312,6 +332,10 @@ if __name__ == "__main__":
     try:
         source = input("Folder containing your MP3 files: ").strip()
         output = input("Folder for the organized library: ").strip()
+        duplicate_choice = input(
+            "If a song already exists at its destination, "
+            "(s)kip it or (r)ename the new copy? [s]: "
+        ).strip().lower()
     except (EOFError, KeyboardInterrupt):
         print("\nCancelled.")
         sys.exit(1)
@@ -320,8 +344,10 @@ if __name__ == "__main__":
         print("Both a source and an output folder are required.")
         sys.exit(1)
 
+    on_duplicate = "rename" if duplicate_choice.startswith("r") else "skip"
+
     try:
-        organize_library(source, output)
+        organize_library(source, output, on_duplicate=on_duplicate)
     except KeyboardInterrupt:
         print("\nCancelled.")
         sys.exit(1)
