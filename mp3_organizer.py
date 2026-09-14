@@ -301,7 +301,7 @@ def organize_file(
     dedupe=True,
     extract_art=True,
 ):
-    """Copy and (re)tag a single MP3 into output_folder/Artist/Album/.
+    """Copy and (re)tag an single MP3 into output_folder/Artist/Album/.
 
     on_duplicate controls what happens when the destination filename
     already exists, OR when dedupe finds a file with identical audio
