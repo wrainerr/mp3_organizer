@@ -155,7 +155,7 @@ Tyler, The Creator/
 
 ## How duplicate detection works
 
-Rather than only checking whether a destination filename is already taken, the script hashes each file's actual audio data (excluding the ID3v2/ID3v1 tag bytes) with SHA-256. Two files with identical audio but completely different filenames, titles, or tag formatting will still hash the same and get flagged as duplicates — including duplicates already sitting in the output folder from a previous run.
+Rather than only checking whether a destination filename is already taken, the script hashes each file's actual audio data (excluding the ID3v2/ID3v1 tag bytes) with SHA-256. Two files with identical audio but completely different filenames, titles, or tag formatting will still hash the same and get flagged as duplicates — including duplicates already sitting in the output folder from a previous run. 
 
 ## Testing
 
