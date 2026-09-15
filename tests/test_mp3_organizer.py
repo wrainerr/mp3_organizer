@@ -2,7 +2,7 @@
 Test suite for mp3_organizer.py.
 
 Run with:
-    pytest
+    pytest 
 
 These tests build tiny synthetic MP3 files in a temp directory (a minimal
 valid MPEG frame header plus real ID3 tags written via mutagen) so the
